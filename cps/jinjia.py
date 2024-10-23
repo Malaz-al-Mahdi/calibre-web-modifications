@@ -26,8 +26,9 @@ from markupsafe import escape
 import datetime
 import mimetypes
 from uuid import uuid4
+import re
 
-from flask import Blueprint, request, url_for, g
+from flask import Blueprint, request, url_for
 from flask_babel import format_date
 from .cw_login import current_user
 
@@ -111,15 +112,14 @@ def yesno(value, yes, no):
 
 @jinjia.app_template_filter('formatfloat')
 def formatfloat(value, decimals=1):
-    if not value:
-        return value
+    value = 0 if not value else value
     formated_value = ('{0:.' + str(decimals) + 'f}').format(value)
     if formated_value.endswith('.' + "0" * decimals):
         formated_value = formated_value.rstrip('0').rstrip('.')
     return formated_value
 
 
-'''@jinjia.app_template_filter('formatseriesindex')
+@jinjia.app_template_filter('formatseriesindex')
 def formatseriesindex_filter(series_index):
     if series_index:
         try:
@@ -130,7 +130,6 @@ def formatseriesindex_filter(series_index):
         except (ValueError, TypeError):
             return series_index
     return 0
-'''
 
 
 @jinjia.app_template_filter('escapedlink')
@@ -184,12 +183,3 @@ def get_cover_srcset(series):
         url = url_for('web.get_series_cover', series_id=series.id, resolution=shortname, c=cache_timestamp())
         srcset.append(f'{url} {resolution}x')
     return ', '.join(srcset)
-
-
-@jinjia.app_template_filter('music')
-def contains_music(book_formats):
-    result = False
-    for format in book_formats:
-        if format.format.lower() in g.constants.EXTENSIONS_AUDIO:
-            result = True
-    return result

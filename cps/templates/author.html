@@ -62,16 +62,28 @@
               <a class="author-name" href="{{url_for('web.books_list',  data='author', sort_param='stored', book_id=author.id) }}">{{author.name.replace('|',',')|shortentitle(30)}}</a>
             {% endif %}
           {% endfor %}
-          {% if entry.Books.data|music %}
+          {% for format in entry.Books.data %}
+            {% if format.format|lower in g.constants.EXTENSIONS_AUDIO %}
             <span class="glyphicon glyphicon-music"></span>
-          {% endif %}
+            {% endif %}
+          {% endfor %}
         </p>
+
+        <!-- Start: Anzeige von norm_number und revision -->
+        {% if entry.Books.norm_number or entry.Books.revision %}
+        <p class="details">
+          <span>{{ entry.Books.norm_number or "N/A" }}</span>
+          <span>{{ entry.Books.revision or "N/A" }}</span>
+        </p>
+        {% endif %}
+        <!-- End: Anzeige von norm_number und revision -->
+
         {% if entry.Books.series.__len__() > 0 %}
         <p class="series">
           <a href="{{url_for('web.books_list', data='series', sort_param='stored', book_id=entry.Books.series[0].id )}}">
             {{entry.Books.series[0].name}}
           </a>
-          ({{entry.Books.series_index|formatfloat(2)}})
+          ({{entry.Books.series_index|formatseriesindex}})
         </p>
         {% endif %}
         {% if entry.Books.ratings.__len__() > 0 %}
@@ -122,7 +134,7 @@
           <a href="{{url_for('web.books_list', data='series', sort_param='stored', book_id=entry.series[0].id )}}">
             {{entry.series[0].name}}
           </a>
-          ({{entry.series_index|formatfloat(2)}})
+          ({{entry.series_index|formatseriesindex}})
         </p>
         {% endif %}
         <div class="rating">

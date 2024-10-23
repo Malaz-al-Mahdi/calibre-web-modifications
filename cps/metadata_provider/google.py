@@ -54,7 +54,7 @@ class Google(Metadata):
                 results.raise_for_status()
             except Exception as e:
                 log.warning(e)
-                return []
+                return None
             for result in results.json().get("items", []):
                 val.append(
                     self._parse_search_result(

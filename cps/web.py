@@ -40,8 +40,8 @@ from sqlalchemy.sql.functions import coalesce
 from werkzeug.datastructures import Headers
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from . import constants, logger, isoLanguages, services
-from . import db, ub, config, app
+from . import constants, db, logger, isoLanguages, services
+from . import ub, config, app
 from . import calibre_db, kobo_sync_status
 from .search import render_search_results, render_adv_search_results
 from .gdriveutils import getFileFromEbooksFolder, do_gdrive_download
@@ -60,7 +60,6 @@ from . import limiter
 from .services.worker import WorkerThread
 from .tasks_status import render_task_status
 from .usermanagement import user_login_required
-from .string_helper import strip_whitespaces
 
 
 feature_support = {
@@ -299,10 +298,9 @@ def get_languages_json():
 def get_matching_tags():
     tag_dict = {'tags': []}
     q = calibre_db.session.query(db.Books).filter(calibre_db.common_filters(True))
-    calibre_db.create_functions()
-    # calibre_db.session.connection().connection.connection.create_function("lower", 1, db.lcase)
-    author_input = request.args.get('authors') or ''
-    title_input = request.args.get('title') or ''
+    calibre_db.session.connection().connection.connection.create_function("lower", 1, db.lcase)
+    author_input = request.args.get('author_name') or ''
+    title_input = request.args.get('book_title') or ''
     include_tag_inputs = request.args.getlist('include_tag') or ''
     exclude_tag_inputs = request.args.getlist('exclude_tag') or ''
     q = q.filter(db.Books.authors.any(func.lower(db.Authors.name).ilike("%" + author_input + "%")),
@@ -1288,7 +1286,7 @@ def register_post():
     if not config.get_mail_server_configured():
         flash(_("Oops! Email server is not configured, please contact your administrator."), category="error")
         return render_title_template('register.html', title=_("Register"), page="register")
-    nickname = strip_whitespaces(to_save.get("email", "")) if config.config_register_email else to_save.get('name')
+    nickname = to_save.get("email", "").strip() if config.config_register_email else to_save.get('name')
     if not nickname or not to_save.get("email"):
         flash(_("Oops! Please complete all fields."), category="error")
         return render_title_template('register.html', title=_("Register"), page="register")
@@ -1313,7 +1311,7 @@ def register_post():
             ub.session.commit()
             if feature_support['oauth']:
                 register_user_with_oauth(content)
-            send_registration_mail(strip_whitespaces(to_save.get("email", "")), nickname, password)
+            send_registration_mail(to_save.get("email", "").strip(), nickname, password)
         except Exception:
             ub.session.rollback()
             flash(_("Oops! An unknown error occurred. Please try again later."), category="error")
@@ -1372,11 +1370,11 @@ def login():
 
 
 @web.route('/login', methods=['POST'])
-@limiter.limit("40/day", key_func=lambda: strip_whitespaces(request.form.get('username', "")).lower())
-@limiter.limit("3/minute", key_func=lambda: strip_whitespaces(request.form.get('username', "")).lower())
+@limiter.limit("40/day", key_func=lambda: request.form.get('username', "").strip().lower())
+@limiter.limit("3/minute", key_func=lambda: request.form.get('username', "").strip().lower())
 def login_post():
     form = request.form.to_dict()
-    username = strip_whitespaces(form.get('username', "")).lower().replace("\n","").replace("\r","")
+    username = form.get('username', "").strip().lower().replace("\n","").replace("\r","")
     try:
         limiter.check()
     except RateLimitExceeded:

@@ -25,7 +25,6 @@ from . import config, logger
 from .helper import split_authors
 from .epub_helper import get_content_opf, default_ns
 from .constants import BookMeta
-from .string_helper import strip_whitespaces
 
 log = logger.create()
 
@@ -66,7 +65,7 @@ def get_epub_layout(book, book_data):
         return layout[0]
 
 
-def get_epub_info(tmp_file_path, original_file_name, original_file_extension, no_cover_processing):
+def get_epub_info(tmp_file_path, original_file_name, original_file_extension):
     ns = {
         'n': 'urn:oasis:names:tc:opendocument:xmlns:container',
         'pkg': 'http://www.idpf.org/2007/opf',
@@ -91,7 +90,7 @@ def get_epub_info(tmp_file_path, original_file_name, original_file_extension, no
             elif s == 'date':
                 epub_metadata[s] = tmp[0][:10]
             else:
-                epub_metadata[s] = strip_whitespaces(tmp[0])
+                epub_metadata[s] = tmp[0].strip()
         else:
             epub_metadata[s] = 'Unknown'
 
@@ -117,10 +116,7 @@ def get_epub_info(tmp_file_path, original_file_name, original_file_extension, no
     epub_metadata = parse_epub_series(ns, tree, epub_metadata)
 
     epub_zip = zipfile.ZipFile(tmp_file_path)
-    if not no_cover_processing:
-        cover_file = parse_epub_cover(ns, tree, epub_zip, cover_path, tmp_file_path)
-    else:
-        cover_file = None
+    cover_file = parse_epub_cover(ns, tree, epub_zip, cover_path, tmp_file_path)
 
     identifiers = []
     for node in p.xpath('dc:identifier', namespaces=ns):

@@ -685,17 +685,6 @@ function ratingFormatter(value, row) {
     return (value/2);
 }
 
-function seriesIndexFormatter(value, row) {
-    if (!value) {
-        return value;
-    }
-    formated_value = Number(value).toFixed(2);
-    if (formated_value.endsWith(".00")) {
-        formated_value = parseInt(formated_value).toString();
-    }
-    return formated_value;
-}
-
 
 /* Do some hiding disabling after user list is loaded */
 function loadSuccess() {
@@ -860,7 +849,6 @@ function BookCheckboxChange(checkbox, userId, field) {
         },
         success: handleListServerResponse
     });
-    console.log("test");
 }
 
 

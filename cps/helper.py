@@ -25,7 +25,7 @@ import re
 import regex
 import shutil
 import socket
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import requests
 import unidecode
 from uuid import uuid4
@@ -43,16 +43,15 @@ from markupsafe import escape
 from urllib.parse import quote
 
 try:
-    from . import cw_advocate
-    from .cw_advocate.exceptions import UnacceptableAddressException
+    import advocate
+    from advocate.exceptions import UnacceptableAddressException
     use_advocate = True
-except ImportError as e:
+except ImportError:
     use_advocate = False
     advocate = requests
     UnacceptableAddressException = MissingSchema = BaseException
 
 from . import calibre_db, cli_param
-from .string_helper import strip_whitespaces
 from .tasks.convert import TaskConvert
 from . import logger, config, db, ub, fs
 from . import gdriveutils as gd
@@ -119,7 +118,7 @@ def convert_book_format(book_id, calibre_path, old_book_format, new_book_format,
 # Texts are not lazy translated as they are supposed to get send out as is
 def send_test_mail(ereader_mail, user_name):
     for email in ereader_mail.split(','):
-        email = strip_whitespaces(email)
+        email = email.strip()
         WorkerThread.add(user_name, TaskEmail(_('Calibre-Web Test Email'), None, None,
                          config.get_mail_settings(), email, N_("Test Email"),
                                               _('This Email has been sent via Calibre-Web.')))
@@ -229,7 +228,7 @@ def send_mail(book_id, book_format, convert, ereader_mail, calibrepath, user_id)
             link = '<a href="{}">{}</a>'.format(url_for('web.show_book', book_id=book_id), escape(book.title))
             email_text = N_("%(book)s send to eReader", book=link)
             for email in ereader_mail.split(','):
-                email = strip_whitespaces(email)
+                email = email.strip()
                 WorkerThread.add(user_id, TaskEmail(_("Send to eReader"), book.path, converted_file_name,
                                  config.get_mail_settings(), email,
                                  email_text, _('This Email has been sent via Calibre-Web.'), book.id))
@@ -253,7 +252,7 @@ def get_valid_filename(value, replace_whitespace=True, chars=128):
         # pipe has to be replaced with comma
         value = re.sub(r'[|]+', ',', value, flags=re.U)
 
-    value = strip_whitespaces(value.encode('utf-8')[:chars].decode('utf-8', errors='ignore'))
+    value = value.encode('utf-8')[:chars].decode('utf-8', errors='ignore').strip()
 
     if not value:
         raise ValueError("Filename cannot be empty")
@@ -268,11 +267,11 @@ def split_authors(values):
             commas = author.count(',')
             if commas == 1:
                 author_split = author.split(',')
-                authors_list.append(strip_whitespaces(author_split[1]) + ' ' + strip_whitespaces(author_split[0]))
+                authors_list.append(author_split[1].strip() + ' ' + author_split[0].strip())
             elif commas > 1:
-                authors_list.extend([strip_whitespaces(x) for x in author.split(',')])
+                authors_list.extend([x.strip() for x in author.split(',')])
             else:
-                authors_list.append(strip_whitespaces(author))
+                authors_list.append(author.strip())
     return authors_list
 
 
@@ -328,7 +327,7 @@ def edit_book_read_status(book_id, read_status=None):
         ub.session_commit("Book {} readbit toggled".format(book_id))
     else:
         try:
-            calibre_db.create_functions(config)
+            calibre_db.update_title_sort(config)
             book = calibre_db.get_filtered_book(book_id)
             book_read_status = getattr(book, 'custom_column_' + str(config.config_read_column))
             if len(book_read_status):
@@ -418,6 +417,8 @@ def rename_author_path(first_author, old_author_dir, renamed_author, calibre_pat
     # Create new_author_dir from parameter or from database
     # Create new title_dir from database and add id
     new_authordir = get_valid_filename(first_author, chars=96)
+    # new_author = calibre_db.session.query(db.Authors).filter(db.Authors.name == renamed_author).first()
+    # old_author_dir = get_valid_filename(old_author_name, chars=96)
     new_author_rename_dir = get_valid_filename(renamed_author, chars=96)
     if gdrive:
         g_file = gd.getFileFromEbooksFolder(None, old_author_dir)
@@ -466,6 +467,7 @@ def update_dir_structure_file(book_id, calibre_path, original_filepath, new_auth
                                      db_filename,
                                      original_filepath,
                                      path)
+        # old_path = os.path.join(calibre_path, author_dir, new_title_dir).replace('\\', '/')
         new_path = os.path.join(calibre_path, new_author_dir, new_title_dir).replace('\\', '/')
         all_new_name = get_valid_filename(local_book.title, chars=42) + ' - ' \
                        + get_valid_filename(new_author, chars=42)
@@ -474,6 +476,8 @@ def update_dir_structure_file(book_id, calibre_path, original_filepath, new_auth
 
         if error:
             return error
+
+    # Rename all files from old names to new names
     return False
 
 
@@ -485,7 +489,7 @@ def upload_new_file_gdrive(book_id, first_author, title, title_dir, original_fil
                                title_dir + " (" + str(book_id) + ")")
     book.path = gdrive_path.replace("\\", "/")
     gd.uploadFileToEbooksFolder(os.path.join(gdrive_path, file_name).replace("\\", "/"), original_filepath)
-    return False
+    return False # rename_files_on_change(first_author, renamed_author, local_book=book, gdrive=True)
 
 
 def update_dir_structure_gdrive(book_id, first_author):
@@ -518,21 +522,19 @@ def update_dir_structure_gdrive(book_id, first_author):
         all_new_name = get_valid_filename(book.title, chars=42) + ' - ' \
                        + get_valid_filename(new_authordir, chars=42)
         rename_all_files_on_change(book, book.path, book.path, all_new_name, gdrive=True)  # todo: Move filenames on gdrive
+    # change location in database to new author/title path
+    # book.path = os.path.join(authordir, new_titledir).replace('\\', '/')
     return False
 
 
 def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, db_filename, original_filepath, path):
     new_path = os.path.join(calibre_path, new_author_dir, new_titledir)
+    # new_name = get_valid_filename(localbook.title, chars=96) + ' - ' + new_author_dir
     try:
         if original_filepath:
             if not os.path.isdir(new_path):
                 os.makedirs(new_path)
-            try:
-                shutil.move(original_filepath, os.path.join(new_path, db_filename))
-            except OSError:
-                log.error("Rename title from {} to {} failed with error, trying to "
-                          "move without metadata".format(path, new_path))
-                shutil.move(original_filepath, os.path.join(new_path, db_filename), copy_function=shutil.copy)
+            shutil.move(original_filepath, os.path.join(new_path, db_filename))
             log.debug("Moving title: %s to %s", original_filepath, new_path)
         else:
             # Check new path is not valid path
@@ -659,7 +661,7 @@ def check_email(email):
 
 
 def check_username(username):
-    username = strip_whitespaces(username)
+    username = username.strip()
     if ub.session.query(ub.User).filter(func.lower(ub.User.name) == username.lower()).scalar():
         log.error("This username is already taken")
         raise Exception(_("This username is already taken"))
@@ -667,18 +669,16 @@ def check_username(username):
 
 
 def valid_email(emails):
-    valid_emails = []
     for email in emails.split(','):
-        email = strip_whitespaces(email)
-        # if email is not deleted
-        if email:
-            # Regex according to https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email#validation
-            if not re.search(r"^[\w.!#$%&'*+\\/=?^_`{|}~-]+@[\w](?:[\w-]{0,61}[\w])?(?:\.[\w](?:[\w-]{0,61}[\w])?)*$",
-                             email):
-                log.error("Invalid Email address format for {}".format(email))
-                raise Exception(_("Invalid Email address format"))
-            valid_emails.append(email)
-    return ",".join(valid_emails)
+	    email = email.strip()
+	    # if email is not deleted
+	    if email:
+	        # Regex according to https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email#validation
+	        if not re.search(r"^[\w.!#$%&'*+\\/=?^_`{|}~-]+@[\w](?:[\w-]{0,61}[\w])?(?:\.[\w](?:[\w-]{0,61}[\w])?)*$",
+	                         email):
+	            log.error("Invalid Email address format")
+	            raise Exception(_("Invalid Email address format"))
+    return email
 
 
 def valid_password(check_password):
@@ -788,23 +788,24 @@ def get_book_cover_internal(book, resolution=None):
 
 def get_book_cover_thumbnail(book, resolution):
     if book and book.has_cover:
-        return (ub.session
-                .query(ub.Thumbnail)
-                .filter(ub.Thumbnail.type == THUMBNAIL_TYPE_COVER)
-                .filter(ub.Thumbnail.entity_id == book.id)
-                .filter(ub.Thumbnail.resolution == resolution)
-                .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc)))
-                .first())
+        return ub.session \
+            .query(ub.Thumbnail) \
+            .filter(ub.Thumbnail.type == THUMBNAIL_TYPE_COVER) \
+            .filter(ub.Thumbnail.entity_id == book.id) \
+            .filter(ub.Thumbnail.resolution == resolution) \
+            .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.utcnow())) \
+            .first()
 
 
 def get_series_thumbnail_on_failure(series_id, resolution):
-    book = (calibre_db.session
-        .query(db.Books)
-        .join(db.books_series_link)
-        .join(db.Series)
-        .filter(db.Series.id == series_id)
-        .filter(db.Books.has_cover == 1)
-        .first())
+    book = calibre_db.session \
+        .query(db.Books) \
+        .join(db.books_series_link) \
+        .join(db.Series) \
+        .filter(db.Series.id == series_id) \
+        .filter(db.Books.has_cover == 1) \
+        .first()
+
     return get_book_cover_internal(book, resolution=resolution)
 
 
@@ -826,13 +827,13 @@ def get_series_cover_internal(series_id, resolution=None):
 
 
 def get_series_thumbnail(series_id, resolution):
-    return (ub.session
-        .query(ub.Thumbnail)
-        .filter(ub.Thumbnail.type == THUMBNAIL_TYPE_SERIES)
-        .filter(ub.Thumbnail.entity_id == series_id)
-        .filter(ub.Thumbnail.resolution == resolution)
-        .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc)))
-        .first())
+    return ub.session \
+        .query(ub.Thumbnail) \
+        .filter(ub.Thumbnail.type == THUMBNAIL_TYPE_SERIES) \
+        .filter(ub.Thumbnail.entity_id == series_id) \
+        .filter(ub.Thumbnail.resolution == resolution) \
+        .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.utcnow())) \
+        .first()
 
 
 # saves book cover from url
@@ -841,7 +842,7 @@ def save_cover_from_url(url, book_path):
         if cli_param.allow_localhost:
             img = requests.get(url, timeout=(10, 200), allow_redirects=False)  # ToDo: Error Handling
         elif use_advocate:
-            img = cw_advocate.get(url, timeout=(10, 200), allow_redirects=False)      # ToDo: Error Handling
+            img = advocate.get(url, timeout=(10, 200), allow_redirects=False)      # ToDo: Error Handling
         else:
             log.error("python module advocate is not installed but is needed")
             return False, _("Python module 'advocate' is not installed but is needed for cover uploads")

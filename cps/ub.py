@@ -20,7 +20,7 @@
 import atexit
 import os
 import sys
-from datetime import datetime, timezone, timedelta
+import datetime
 import itertools
 import uuid
 from flask import session as flask_session
@@ -54,7 +54,7 @@ from sqlalchemy.orm import backref, relationship, sessionmaker, Session, scoped_
 from werkzeug.security import generate_password_hash
 
 from . import constants, logger
-from .string_helper import strip_whitespaces
+
 
 log = logger.create()
 
@@ -77,7 +77,7 @@ def store_user_session():
     if flask_session.get('_user_id', ""):
         try:
             if not check_user_session(_user, _id, _random):
-                expiry = int((datetime.now()  + timedelta(days=31)).timestamp())
+                expiry = int((datetime.datetime.now()  + datetime.timedelta(days=31)).timestamp())
                 user_session = User_Sessions(_user, _id, _random, expiry)
                 session.add(user_session)
                 session.commit()
@@ -109,7 +109,7 @@ def check_user_session(user_id, session_key, random):
                                                     User_Sessions.random == random,
                                                     ).one_or_none()
         if found is not None:
-            new_expiry = int((datetime.now()  + timedelta(days=31)).timestamp())
+            new_expiry = int((datetime.datetime.now()  + datetime.timedelta(days=31)).timestamp())
             if new_expiry - found.expiry > 86400:
                 found.expiry = new_expiry
                 session.merge(found)
@@ -196,19 +196,19 @@ class UserBase:
 
     def list_denied_tags(self):
         mct = self.denied_tags or ""
-        return [strip_whitespaces(t) for t in mct.split(",")]
+        return [t.strip() for t in mct.split(",")]
 
     def list_allowed_tags(self):
         mct = self.allowed_tags or ""
-        return [strip_whitespaces(t) for t in mct.split(",")]
+        return [t.strip() for t in mct.split(",")]
 
     def list_denied_column_values(self):
         mct = self.denied_column_value or ""
-        return [strip_whitespaces(t) for t in mct.split(",")]
+        return [t.strip() for t in mct.split(",")]
 
     def list_allowed_column_values(self):
         mct = self.allowed_column_value or ""
-        return [strip_whitespaces(t) for t in mct.split(",")]
+        return [t.strip() for t in mct.split(",")]
 
     def get_view_property(self, page, prop):
         if not self.view_settings.get(page):
@@ -311,6 +311,7 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.view_settings = data.view_settings
         self.kobo_only_shelves_sync = data.kobo_only_shelves_sync
 
+
     def role_admin(self):
         return False
 
@@ -369,8 +370,8 @@ class Shelf(Base):
     user_id = Column(Integer, ForeignKey('user.id'))
     kobo_sync = Column(Boolean, default=False)
     books = relationship("BookShelf", backref="ub_shelf", cascade="all, delete-orphan", lazy="dynamic")
-    created = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created = Column(DateTime, default=datetime.datetime.utcnow)
+    last_modified = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     def __repr__(self):
         return '<Shelf %d:%r>' % (self.id, self.name)
@@ -384,7 +385,7 @@ class BookShelf(Base):
     book_id = Column(Integer)
     order = Column(Integer)
     shelf = Column(Integer, ForeignKey('shelf.id'))
-    date_added = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    date_added = Column(DateTime, default=datetime.datetime.utcnow)
 
     def __repr__(self):
         return '<Book %r>' % self.id
@@ -397,7 +398,7 @@ class ShelfArchive(Base):
     id = Column(Integer, primary_key=True)
     uuid = Column(String)
     user_id = Column(Integer, ForeignKey('user.id'))
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_modified = Column(DateTime, default=datetime.datetime.utcnow)
 
 
 class ReadBook(Base):
@@ -417,7 +418,7 @@ class ReadBook(Base):
                                       cascade="all",
                                       backref=backref("book_read_link",
                                                       uselist=False))
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    last_modified = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     last_time_started_reading = Column(DateTime, nullable=True)
     times_started_reading = Column(Integer, default=0, nullable=False)
 
@@ -440,7 +441,7 @@ class ArchivedBook(Base):
     user_id = Column(Integer, ForeignKey('user.id'))
     book_id = Column(Integer)
     is_archived = Column(Boolean, unique=False)
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_modified = Column(DateTime, default=datetime.datetime.utcnow)
 
 
 class KoboSyncedBooks(Base):
@@ -459,8 +460,8 @@ class KoboReadingState(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('user.id'))
     book_id = Column(Integer)
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    priority_timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    last_modified = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    priority_timestamp = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     current_bookmark = relationship("KoboBookmark", uselist=False, backref="kobo_reading_state", cascade="all, delete")
     statistics = relationship("KoboStatistics", uselist=False, backref="kobo_reading_state", cascade="all, delete")
 
@@ -470,7 +471,7 @@ class KoboBookmark(Base):
 
     id = Column(Integer, primary_key=True)
     kobo_reading_state_id = Column(Integer, ForeignKey('kobo_reading_state.id'))
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    last_modified = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     location_source = Column(String)
     location_type = Column(String)
     location_value = Column(String)
@@ -483,7 +484,7 @@ class KoboStatistics(Base):
 
     id = Column(Integer, primary_key=True)
     kobo_reading_state_id = Column(Integer, ForeignKey('kobo_reading_state.id'))
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    last_modified = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     remaining_time_minutes = Column(Integer)
     spent_reading_minutes = Column(Integer)
 
@@ -494,11 +495,11 @@ def receive_before_flush(session, flush_context, instances):
     for change in itertools.chain(session.new, session.dirty):
         if isinstance(change, (ReadBook, KoboStatistics, KoboBookmark)):
             if change.kobo_reading_state:
-                change.kobo_reading_state.last_modified = datetime.now(timezone.utc)
-    # Maintain the last_modified_bit for the Shelf table.
+                change.kobo_reading_state.last_modified = datetime.datetime.utcnow()
+    # Maintain the last_modified bit for the Shelf table.
     for change in itertools.chain(session.new, session.deleted):
         if isinstance(change, BookShelf):
-            change.ub_shelf.last_modified = datetime.now(timezone.utc)
+            change.ub_shelf.last_modified = datetime.datetime.utcnow()
 
 
 # Baseclass representing Downloads from calibre-web in app.db
@@ -538,7 +539,7 @@ class RemoteAuthToken(Base):
     def __init__(self):
         super().__init__()
         self.auth_token = (hexlify(os.urandom(4))).decode('utf-8')
-        self.expiration = datetime.now() + timedelta(minutes=10)  # 10 min from now
+        self.expiration = datetime.datetime.now() + datetime.timedelta(minutes=10)  # 10 min from now
 
     def __repr__(self):
         return '<Token %r>' % self.id
@@ -562,7 +563,7 @@ class Thumbnail(Base):
     type = Column(SmallInteger, default=constants.THUMBNAIL_TYPE_COVER)
     resolution = Column(SmallInteger, default=constants.COVER_THUMBNAIL_SMALL)
     filename = Column(String, default=filename)
-    generated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    generated_at = Column(DateTime, default=lambda: datetime.datetime.utcnow())
     expiration = Column(DateTime, nullable=True)
 
 
@@ -613,7 +614,7 @@ def migrate_Database(_session):
 
 def clean_database(_session):
     # Remove expired remote login tokens
-    now = datetime.now()
+    now = datetime.datetime.now()
     try:
         _session.query(RemoteAuthToken).filter(now > RemoteAuthToken.expiration).\
             filter(RemoteAuthToken.token_type != 1).delete()

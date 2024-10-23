@@ -3,9 +3,9 @@
  */
 /* global Bloodhound, language, Modernizr, tinymce, getPath */
 
-if ($("#comments").length) {
+if ($("#description").length) {
     tinymce.init({
-        selector: "#comments",
+        selector: "#description",
         plugins: 'code',
         branding: false,
         menubar: "edit view format",
@@ -93,7 +93,7 @@ var authors = new Bloodhound({
     },
 });
 
-$(".form-group #authors").typeahead(
+$(".form-group #bookAuthor").typeahead(
     {
         highlight: true,
         minLength: 1,
@@ -243,13 +243,13 @@ $("#search").on("change input.typeahead:selected", function(event) {
     });
 });
 
-/*$("#btn-upload-format").on("change", function () {
+$("#btn-upload-format").on("change", function () {
     var filename = $(this).val();
     if (filename.substring(3, 11) === "fakepath") {
         filename = filename.substring(12);
     } // Remove c:\fake at beginning from localhost chrome
     $("#upload-format").text(filename);
-});*/
+});
 
 $("#btn-upload-cover").on("change", function () {
     var filename = $(this).val();
@@ -261,8 +261,8 @@ $("#btn-upload-cover").on("change", function () {
 
 $("#xchange").click(function () {
     this.blur();
-    var title = $("#title").val();
-    $("#title").val($("#authors").val());
-    $("#authors").val(title);
+    var title = $("#book_title").val();
+    $("#book_title").val($("#bookAuthor").val());
+    $("#bookAuthor").val(title);
 });
 

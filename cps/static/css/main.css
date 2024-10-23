@@ -77,6 +77,7 @@ body {
 }
 
 #panels a {
+  visibility: hidden;
   width: 18px;
   height: 20px;
   overflow: hidden;

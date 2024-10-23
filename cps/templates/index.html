@@ -37,12 +37,19 @@
             {% endif %}
           {% endfor %}
         </p>
+        <p>------</p>
+        <p>
+          {% for ccl in entry.Books.ccol %}
+            <span style="font-weight: bold;font-size:11px;margin-top:3px"><mark> Nummer der Norm:</mark>{{ccl.value}}</span> 
+            <span style="font-weight: bold;margin-top:3px;font-size:11px"><mark> Revision:</mark>{{entry.Books.ccolRevision[0].value}}</span> 
+          {% endfor %}
+        </p>
         {% if entry.Books.series.__len__() > 0 %}
         <p class="series">
           <a href="{{url_for('web.books_list', data='series', sort_param='stored', book_id=entry.Books.series[0].id )}}">
             {{entry.Books.series[0].name}}
           </a>
-          ({{entry.Books.series_index|formatfloat(2)}})
+          ({{entry.Books.series_index|formatseriesindex}})
         </p>
         {% endif %}
         {% if entry.Books.ratings.__len__() > 0 %}
@@ -119,9 +126,18 @@
               <a class="author-name" href="{{url_for('web.books_list', data='author', book_id=author.id, sort_param='stored') }}">{{author.name.replace('|',',')|shortentitle(30)}}</a>
             {% endif %}
           {% endfor %}
-          {% if entry.Books.data|music %}
+          {% for format in entry.Books.data %}
+            {% if format.format|lower in g.constants.EXTENSIONS_AUDIO %}
             <span class="glyphicon glyphicon-music"></span>
-          {% endif %}
+            {% endif %}
+          {%endfor%}
+        </p>
+        <p>------</p>
+        <p>
+          {% for ccl in entry.Books.ccol %}
+            <span style="font-weight: bold;font-size:11px;margin-top:3px"><mark> Nummer der Norm:</mark>{{ccl.value}}</span> 
+            <span style="font-weight: bold;margin-top:3px;font-size:11px"><mark> Revision:</mark>{{entry.Books.ccolRevision[0].value}}</span> 
+          {% endfor %}
         </p>
         {% if entry.Books.series.__len__() > 0 %}
         <p class="series">
@@ -132,7 +148,7 @@
         {% else %}
             <span>{{entry.Books.series[0].name}}</span>
         {% endif %}
-          ({{entry.Books.series_index|formatfloat(2)}})
+          ({{entry.Books.series_index|formatseriesindex}})
         </p>
         {% endif %}
         {% if entry.Books.ratings.__len__() > 0 %}
