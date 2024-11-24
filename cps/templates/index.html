@@ -21,29 +21,19 @@
         </a>
         <p class="author">
           {% for author in entry.Books.authors %}
-            {% if loop.index > g.config_authors_max and g.config_authors_max != 0 %}
-              {% if not loop.first %}
-                <span class="author-hidden-divider">&amp;</span>
-			  {% endif %}
-              <a class="author-name author-hidden" href="{{url_for('web.books_list', data='author', sort_param='stored', book_id=author.id) }}">{{author.name.replace('|',',')|shortentitle(30)}}</a>
-              {% if loop.last %}
-                <a href="#" class="author-expand" data-authors-max="{{g.config_authors_max}}" data-collapse-caption="({{_('reduce')}})">(...)</a>
-              {% endif %}
-            {% else %}
-              {% if not loop.first %}
-                <span>&amp;</span>
-              {% endif %}
-              <a class="author-name" href="{{url_for('web.books_list',  data='author', sort_param='stored', book_id=author.id) }}">{{author.name.replace('|',',')|shortentitle(30)}}</a>
+            {% if loop.index == 1 %}  <!-- Nur den ersten Autor anzeigen -->
+              <span>
+                {{author.name.replace('|',',')|shortentitle(30)}} -
+                {% for ccl in entry.Books.ccol %}
+                  {{ccl.value}} :
+                {% endfor %}
+                {{entry.Books.ccolRevision[0].value}}
+              </span>
             {% endif %}
           {% endfor %}
         </p>
-        <p>------</p>
-        <p>
-          {% for ccl in entry.Books.ccol %}
-            <span style="font-weight: bold;font-size:11px;margin-top:3px"><mark> Nummer der Norm:</mark>{{ccl.value}}</span> 
-            <span style="font-weight: bold;margin-top:3px;font-size:11px"><mark> Revision:</mark>{{entry.Books.ccolRevision[0].value}}</span> 
-          {% endfor %}
-        </p>
+        
+        
         {% if entry.Books.series.__len__() > 0 %}
         <p class="series">
           <a href="{{url_for('web.books_list', data='series', sort_param='stored', book_id=entry.Books.series[0].id )}}">
@@ -111,34 +101,20 @@
         </a>
         <p class="author">
           {% for author in entry.Books.authors %}
-            {% if loop.index > g.config_authors_max and g.config_authors_max != 0 %}
-              {% if not loop.first %}
-                <span class="author-hidden-divider">&amp;</span>
-			  {% endif %}
-              <a class="author-name author-hidden" href="{{url_for('web.books_list', data='author', book_id=author.id, sort_param='stored') }}">{{author.name.replace('|',',')|shortentitle(30)}}</a>
-              {% if loop.last %}
-                <a href="#" class="author-expand" data-authors-max="{{g.config_authors_max}}" data-collapse-caption="({{_('reduce')}})">(...)</a>
-              {% endif %}
-            {% else %}
-              {% if not loop.first %}
-                <span>&amp;</span>
-              {% endif %}
-              <a class="author-name" href="{{url_for('web.books_list', data='author', book_id=author.id, sort_param='stored') }}">{{author.name.replace('|',',')|shortentitle(30)}}</a>
+            {% if loop.index == 1 %}  <!-- Nur den ersten Autor anzeigen -->
+              <span>
+                {{author.name.replace('|',',')|shortentitle(30)}} - 
+                {% for ccl in entry.Books.ccol %}
+                  {{ccl.value}} :
+                {% endfor %}
+                {{entry.Books.ccolRevision[0].value}}
+              </span>
             {% endif %}
           {% endfor %}
-          {% for format in entry.Books.data %}
-            {% if format.format|lower in g.constants.EXTENSIONS_AUDIO %}
-            <span class="glyphicon glyphicon-music"></span>
-            {% endif %}
-          {%endfor%}
         </p>
-        <p>------</p>
-        <p>
-          {% for ccl in entry.Books.ccol %}
-            <span style="font-weight: bold;font-size:11px;margin-top:3px"><mark> Nummer der Norm:</mark>{{ccl.value}}</span> 
-            <span style="font-weight: bold;margin-top:3px;font-size:11px"><mark> Revision:</mark>{{entry.Books.ccolRevision[0].value}}</span> 
-          {% endfor %}
-        </p>
+        
+
+     
         {% if entry.Books.series.__len__() > 0 %}
         <p class="series">
         {% if page != "series" %}
